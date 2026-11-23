@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 30 30%22%3E%3Cpath d=%22M15 2 27 9v12l-12 7L3 21V9z%22 fill=%22%23f07c1e%22/%3E%3C/svg%3E">
+<title>FrameTile Studio</title>
+<style>
+:root{
+  --bg:#eef0f2; --panel:#ffffff; --ink:#1d2228; --muted:#6b7480; --line:#dde1e6;
+  --accent:#f07c1e; --accent-ink:#fff; --accent-soft:#fff1e5;
+  --ok:#1f9d55; --warn:#c98a00; --fail:#d0342c; --viewer:#f6f7f8;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --bg:#15181c; --panel:#1f2328; --ink:#e8eaed; --muted:#9aa3ad; --line:#2e343b;
+  --accent:#ff8a2a; --accent-soft:#3a2614; --viewer:#1a1d21;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.2px}
+.logo small{font-weight:500;color:var(--muted);font-size:12px;display:block;letter-spacing:0}
+.tabs{display:flex;gap:4px;margin-left:12px}
+.tabs button{border:0;background:transparent;color:var(--muted);padding:8px 12px;border-radius:8px;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--accent-soft);color:var(--accent)}
+.grow{flex:1}
+select,input{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+label.inline{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+main{display:grid;grid-template-columns:230px 1fr 380px;height:calc(100% - 57px)}
+aside,section.side{background:var(--panel);overflow:auto}
+aside{border-right:1px solid var(--line);padding:12px}
+section.side{border-left:1px solid var(--line);padding:14px}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 4px 8px}
+h3:first-child{margin-top:2px}
+.lib{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.lib button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:1px solid var(--line);background:var(--panel);border-radius:10px;cursor:pointer;color:var(--ink)}
+.lib button:hover{border-color:var(--accent)}
+.lib button.on{border-color:var(--accent);background:var(--accent-soft)}
+.lib b{font-size:13px}.lib span{font-size:11px;color:var(--muted);text-align:center}
+.lib svg{width:42px;height:42px}
+#viewer{position:relative;background:var(--viewer);min-width:0}
+#viewer canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;left:12px;top:12px;right:260px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
+.chip b{color:var(--ink)}
+.vtools{position:absolute;right:12px;top:12px;display:flex;gap:6px}
+.vtools button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 9px;cursor:pointer;color:var(--ink);font-size:12px}
+.busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--viewer) 60%,transparent);font-weight:600}
+.busy.on{display:flex}
+.spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;margin-right:10px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.card h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.form input,.form select{width:100%}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.badge{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;color:#fff}
+.PASS,.OK{background:var(--ok)}.WARN{background:var(--warn)}.FAIL{background:var(--fail)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+th{color:var(--muted);font-weight:600}
+td.rule{width:62%}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dl{display:flex;flex-direction:column;gap:4px}
+.dl a{color:var(--ink);text-decoration:none;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;display:flex;justify-content:space-between}
+.dl a:hover{border-color:var(--accent)}
+.muted{color:var(--muted);font-size:12px}
+.err{color:var(--fail);font-weight:600;white-space:pre-wrap}
+details summary{cursor:pointer;color:var(--muted);font-size:12px;margin:4px 0}
+.std{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:12px}
+.std span:nth-child(odd){color:var(--muted)}
+.kitlist td input{width:52px}
+.hidden{display:none!important}
+@media (max-width:1000px){ main{grid-template-columns:1fr;height:auto} #viewer{height:60vh} aside .lib{grid-template-columns:repeat(4,1fr)} header{flex-wrap:wrap}}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <svg width="30" height="30" viewBox="0 0 30 30"><path d="M15 2 27 9v12l-12 7L3 21V9z" fill="#f07c1e"/><path d="M10 11h10v8H10z" fill="none" stroke="#fff" stroke-width="2.4"/></svg>
+    <div>FrameTile Studio <small>MK1 · lưới 8 mm · M3 · tile 4.0 mm</small></div>
+  </div>
+  <nav class="tabs">
+    <button data-tab="design" class="on">Thiết kế</button>
+    <button data-tab="scene">Lắp thử</button>
+    <button data-tab="kit">Bộ in <span id="kitCount" class="muted"></span></button>
+  </nav>
+  <div class="grow"></div>
+  <label class="inline">Máy in / vật liệu <select id="profile"></select></label>
+</header>
+<main>
+  <aside id="left">
+    <div id="libWrap"></div>
+    <div id="sceneWrap" class="hidden"></div>
+  </aside>
+  <div id="viewer">
+    <div class="hud" id="hud"></div>
+    <div class="vtools">
+      <button id="btnFit" title="Vừa khung">⤢ Vừa khung</button>
+      <button id="btnGrid" title="Lưới 8 mm">▦ Lưới 8</button>
+      <button id="btnWire" title="Cạnh">◇ Cạnh</button>
+    </div>
+    <div class="busy" id="busy"><div class="spinner"></div><span id="busyMsg">Đang dựng…</span></div>
+  </div>
+  <section class="side" id="right">
+    <div id="paneDesign">
+      <div class="card">
+        <h4 id="partTitle">—</h4>
+        <div class="form" id="form"></div>
+        <details style="margin-top:8px"><summary>Tuỳ chỉnh chuẩn (nâng cao)</summary>
+          <div class="form" id="stdForm" style="margin-top:6px"></div>
+          <div class="muted" style="margin-top:6px">Lưới 8 mm, dày 4.0 mm và lỗ M3 Ø3.2 bị khoá để mọi chi tiết luôn lắp được với nhau. DRC sẽ báo nếu giá trị tuỳ chỉnh vi phạm chuẩn.</div>
+        </details>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="btnBuild">Tạo chi tiết</button>
+          <button class="btn sec" id="btnAddKit" disabled>+ Thêm vào bộ in</button>
+          <label class="inline"><input type="checkbox" id="auto" checked> tự dựng</label>
+        </div>
+      </div>
+      <div id="result"></div>
+    </div>
+    <div id="paneScene" class="hidden"><div id="sceneResult" class="card"><div class="muted">Chọn một cụm lắp ở cột trái. Mỗi cụm đặt các chi tiết theo quy tắc lưới, cắm vít M3 vào mọi lỗ và kiểm tra va chạm.</div></div></div>
+    <div id="paneKit" class="hidden">
+      <div class="card">
+        <h4>Bộ in</h4>
+        <div class="row" style="margin-bottom:8px">
+          <button class="btn sec" id="presetStarter">Starter set (10 loại)</button>
+          <button class="btn sec" id="presetCube">Hộp 5×5×5</button>
+          <button class="btn sec" id="kitClear">Xoá hết</button>
+        </div>
+        <table class="kitlist"><thead><tr><th>Mã</th><th>Tham số</th><th>SL</th><th></th></tr></thead><tbody id="kitBody"></tbody></table>
+        <div class="row" style="margin-top:10px"><button class="btn" id="btnKit">Tải ZIP (STEP + STL + BOM)</button></div>
+        <div id="kitMsg" class="muted" style="margin-top:8px"></div>
+      </div>
+      <div class="card"><h4>Chuẩn thiết kế</h4><div class="std" id="stdView"></div></div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "./vendor/OrbitControls.js";
+import { STLLoader } from "./vendor/STLLoader.js";
+
+const $ = s => document.querySelector(s);
+const state = { cat:null, code:"T-S", params:{}, std:{}, last:null, kit:[], tab:"design" };
+try { state.kit = JSON.parse(localStorage.getItem("ft_kit")||"[]"); } catch(e) {}
+
+/* ---------------- icons (plan-view glyphs) ---------------- */
+const ICON = {
+  "T-S":'<rect x="5" y="5" width="32" height="32" rx="4"/><path d="M11 11l20 20M31 11L11 31"/>',
+  "T-W":'<rect x="5" y="5" width="32" height="32" rx="4"/><rect x="12" y="12" width="18" height="18" rx="2"/>',
+  "T-D":'<rect x="5" y="5" width="32" height="32" rx="4"/><path d="M11 31L31 11"/>',
+  "T-P":'<rect x="5" y="5" width="32" height="32" rx="4" class="f"/>',
+  "T-A":'<path d="M6 36h30L22 6H6z"/>',
+  "T-U":'<path d="M6 37V20a15 15 0 0 1 30 0v17M13 37V20a8 8 0 0 1 16 0v17"/>',
+  "C-90":'<path d="M8 6v30h28v-9H17V6z" class="o"/>',
+  "C-T":'<path d="M4 14h34v12H27v12H15V26H4z" class="o"/>',
+  "C-X":'<path d="M15 4h12v11h11v12H27v11H15V27H4V15h11z" class="o"/>',
+  "C-I":'<rect x="4" y="15" width="34" height="12" rx="3" class="o"/>',
+  "C-L":'<path d="M6 6h12v20h18v12H6z" class="o"/>',
+  "H-180":'<rect x="4" y="9" width="15" height="24" rx="2" class="o"/><rect x="23" y="9" width="15" height="24" rx="2" class="o"/><circle cx="21" cy="21" r="3"/>',
+  "M-H":'<circle cx="21" cy="21" r="16" class="o"/><circle cx="21" cy="21" r="6"/>',
+  "W-40":'<circle cx="21" cy="21" r="17" class="k"/><circle cx="21" cy="21" r="11" class="o"/><path d="M14 14l14 14M28 14L14 28"/>',
+};
+const svg = c => `<svg viewBox="0 0 42 42"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">${ICON[c]||""}</g></svg>`
+  .replace(/class="f"/g,'fill="#cfd3d8"').replace(/class="o"/g,'fill="#f07c1e" stroke="#c45f0c"').replace(/class="k"/g,'fill="#2b2b2b"');
+
+/* ---------------- viewer ---------------- */
+const host = $("#viewer");
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+host.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const bgColor = () => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue("--viewer").trim() || "#f6f7f8");
+scene.background = bgColor();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => scene.background = bgColor());
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 5000);
+camera.up.set(0,0,1);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f96, 1.6));
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(80,-120,200); scene.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.6); fill.position.set(-120,80,60); scene.add(fill);
+let group = new THREE.Group(); scene.add(group);
+let grid = null, showGrid = true, showEdges = true;
+function makeGrid(size){
+  if (grid) scene.remove(grid);
+  const n = Math.max(8, Math.ceil(size/8)*2+4);
+  grid = new THREE.GridHelper(n*8, n, 0xf07c1e, 0xb8bec6);
+  grid.rotation.x = Math.PI/2; grid.material.opacity = .35; grid.material.transparent = true;
+  grid.visible = showGrid; scene.add(grid);
+}
+function resize(){ const r = host.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width/Math.max(r.height,1); camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(host); resize();
+(function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene,camera); })();
+function fit(){
+  const box = new THREE.Box3().setFromObject(group); if (box.isEmpty()) return;
+  const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3()).length();
+  controls.target.copy(c);
+  camera.position.copy(c).add(new THREE.Vector3(.75,-1.1,.9).normalize().multiplyScalar(s*1.35+20));
+  camera.near = s/100; camera.far = s*20+500; camera.updateProjectionMatrix();
+  if (grid) grid.position.set(Math.round(c.x/8)*8, Math.round(c.y/8)*8, box.min.z-0.01);
+}
+const loader = new STLLoader();
+async function show(items){
+  const next = new THREE.Group();
+  await Promise.all(items.map(async it => {
+    const geo = await loader.loadAsync(it.stl + "?t=" + Date.now()%1e9);
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({color: it.color, roughness:.55, metalness:.05, transparent:!!it.screw, opacity: it.screw?.85:1});
+    const mesh = new THREE.Mesh(geo, mat);
+    if (it.offset) mesh.position.set(...it.offset);
+    next.add(mesh);
+    if (showEdges){
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({color: 0x000000, transparent:true, opacity:.25}));
+      e.position.copy(mesh.position); e.userData.edge = true; next.add(e);
+    }
+  }));
+  scene.remove(group); group = next; scene.add(group);
+  const s = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
+  makeGrid(Math.max(s.x,s.y)); fit();
+}
+$("#btnFit").onclick = fit;
+$("#btnGrid").onclick = () => { showGrid=!showGrid; if(grid) grid.visible=showGrid; };
+$("#btnWire").onclick = () => { showEdges=!showEdges; group.children.forEach(o=>{ if(o.userData.edge) o.visible=showEdges; }); };
+
+/* ---------------- api ---------------- */
+async function post(url, body){
+  const r = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j = await r.json(); if (j.error) throw new Error(j.error); return j;
+}
+function busy(on, msg){ $("#busy").classList.toggle("on",on); if(msg) $("#busyMsg").textContent = msg; }
+
+/* ---------------- design tab ---------------- */
+function renderLib(){
+  const fam = {tile:"Frame Tiles (phẳng)", connector:"Connectors", motion:"Joints & Motion"};
+  let h = "";
+  for (const f of Object.keys(fam)){
+    h += `<h3>${fam[f]}</h3><div class="lib">`;
+    for (const [c,v] of Object.entries(state.cat.catalog)) if (v.family===f)
+      h += `<button data-code="${c}" class="${c===state.code?"on":""}">${svg(c)}<b>${c}</b><span>${v.title}</span></button>`;
+    h += `</div>`;
+  }
+  $("#libWrap").innerHTML = h;
+  $("#libWrap").querySelectorAll("button").forEach(b => b.onclick = () => selectPart(b.dataset.code));
+}
+function selectPart(code){
+  state.code = code; state.params = {...state.cat.catalog[code].params};
+  renderLib(); renderForm(); if ($("#auto").checked) doBuild();
+}
+function renderForm(){
+  const spec = state.cat.spec[state.code];
+  $("#partTitle").innerHTML = `${svg(state.code).replace('<svg','<svg width="22" height="22"')} ${state.code} · ${state.cat.catalog[state.code].title}`;
+  let h = "";
+  for (const [k,s] of Object.entries(spec)){
+    const v = state.params[k];
+    if (s.type==="enum") h += `<label>${s.label}<select data-k="${k}">${s.options.map(o=>`<option ${o==v?"selected":""}>${o}</option>`).join("")}</select></label>`;
+    else h += `<label>${s.label}<input data-k="${k}" type="number" value="${v}" min="${s.min}" max="${s.max}" step="${s.type==="int"?1:0.5}"></label>`;
+  }
+  if (["T-S","T-W","T-D","T-A","T-U","T-P"].includes(state.code))
+    h += `<div class="muted" style="grid-column:1/-1">Kích thước = 8×n × 8×m = <b id="dims"></b> mm</div>`;
+  $("#form").innerHTML = h;
+  const upd = () => { const d=$("#dims"); if(d) d.textContent = `${8*state.params.n} × ${8*state.params.m}`; };
+  upd();
+  $("#form").querySelectorAll("[data-k]").forEach(el => el.onchange = () => {
+    const s = spec[el.dataset.k];
+    let v = el.value; if (s.type!=="enum"){ v = s.type==="int"?parseInt(v):parseFloat(v); v = Math.min(s.max, Math.max(s.min, v)); el.value = v; }
+    state.params[el.dataset.k] = v; upd(); if ($("#auto").checked) doBuild();
+  });
+}
+function renderStd(){
+  const S = state.cat.standard, ed = state.cat.std_editable;
+  const lbl = {rim:"Viền tile (mm)",brace:"Thanh giằng (mm)",inner_r:"Bo góc trong R",edge_round:"Bo cạnh trên",ef_chamfer:"Vát chân voi",wall_min:"Thành tối thiểu",knuckle_gap:"Khe bản lề",tire_squeeze:"Ép lốp TPU"};
+  $("#stdForm").innerHTML = ed.map(k=>`<label>${lbl[k]||k}<input data-s="${k}" type="number" step="0.1" placeholder="${S[k]}" value="${state.std[k]??""}"></label>`).join("");
+  $("#stdForm").querySelectorAll("[data-s]").forEach(el => el.onchange = () => { if (el.value==="") delete state.std[el.dataset.s]; else state.std[el.dataset.s]=parseFloat(el.value); if ($("#auto").checked) doBuild(); });
+  const names = {grid:"Lưới",tile_t:"Dày tile",hole:"Lỗ M3",wall_min:"Thành tối thiểu",fillet_min:"Bo góc tối thiểu",inner_r:"Bo góc trong",rim:"Viền",brace:"Giằng",conn:"Tiết diện connector",edge_round:"Bo cạnh trên",ef_chamfer:"Vát chân voi",nut_af:"Đai ốc M3 (AF)",nut_t:"Đai ốc M3 (dày)",knuckle_gap:"Khe bản lề",tire_squeeze:"Ép lốp"};
+  $("#stdView").innerHTML = Object.entries(S).map(([k,v])=>`<span>${names[k]||k}</span><span>${v} mm</span>`).join("");
+}
+let seq = 0;
+async function doBuild(){
+  const my = ++seq;
+  busy(true, `Đang dựng ${state.code}…`); $("#btnAddKit").disabled = true;
+  try {
+    const r = await post("/api/build", {code:state.code, params:state.params, profile:$("#profile").value, std:state.std});
+    if (my !== seq) return;
+    state.last = r; renderResult(r); await show(r.bodies);
+    $("#btnAddKit").disabled = false;
+  } catch(e){ if (my===seq) $("#result").innerHTML = `<div class="card err">${e.message}</div>`; }
+  finally { if (my===seq) busy(false); }
+}
+function renderResult(r){
+  const hud = r.bodies.map(b=>`<span class="chip"><b>${b.name}</b> ${b.size.map(v=>v.toFixed(1)).join(" × ")} mm · ${b.mass} g</span>`).join("");
+  $("#hud").innerHTML = hud + `<span class="chip">hiển thị: <b>${r.view_variant}</b></span>`;
+  let h = `<div class="card"><h4>Kiểm tra luật thiết kế <span class="badge ${r.summary}">${r.summary}</span><span class="muted" style="margin-left:auto">${r.seconds}s</span></h4>`;
+  for (const [body, rows] of Object.entries(r.drc)){
+    if (Object.keys(r.drc).length>1) h += `<div class="muted" style="margin-top:6px"><b>${body}</b></div>`;
+    h += `<table>${rows.map(x=>`<tr><td><span class="badge ${x.status}">${x.status}</span></td><td class="rule">${x.rule}${x.note?`<div class="muted">${x.note}</div>`:""}</td><td class="num">${x.value}</td></tr>`).join("")}</table>`;
+  }
+  h += `</div>`;
+  if (r.tol.length){
+    h += `<div class="card"><h4>Bù dung sai in (${r.profile})</h4><table><tr><th>Đặc trưng</th><th class="num">Danh nghĩa</th><th class="num">Vẽ trong model</th></tr>`;
+    h += r.tol.map(t=>`<tr><td>${t.feature}<div class="muted">${t.type}</div></td><td class="num">${t.nominal.toFixed(2)}</td><td class="num"><b>${t.model.toFixed(2)}</b> <span class="muted">(${t.delta>=0?"+":""}${t.delta.toFixed(2)})</span></td></tr>`).join("");
+    h += `</table><div class="muted" style="margin-top:6px">Profile chung chưa hiệu chuẩn — in coupon và chạy <code>z3d.sh calibrate</code> để có số đúng máy của bạn.</div></div>`;
+  }
+  h += `<div class="card"><h4>Phụ kiện & ghi chú</h4>${r.bom.map(b=>`<div>• ${b}</div>`).join("")}`;
+  r.bodies.forEach(b=>b.notes.forEach(n=>h+=`<div class="muted">• ${b.name}: ${n}</div>`));
+  h += `</div><div class="card"><h4>Tải file</h4><div class="dl">`;
+  const order = f => (f.variant==="nominal"?1:0)*10 + (f.ext==="stl"?0:1);
+  h += [...r.files].sort((a,b)=>order(a)-order(b)).map(f=>`<a href="${f.url}?dl=1">${f.label}<span>⬇</span></a>`).join("");
+  h += `</div><div class="muted" style="margin-top:6px">In file <b>print_*</b> (đã bù dung sai). File <b>nominal</b> là kích thước chuẩn để dựng CAD / lắp ráp.</div></div>`;
+  $("#result").innerHTML = h;
+}
+$("#btnBuild").onclick = doBuild;
+$("#btnAddKit").onclick = () => { addKit(state.code, {...state.params}, 1); };
+
+/* ---------------- kit ---------------- */
+function saveKit(){ try{ localStorage.setItem("ft_kit", JSON.stringify(state.kit)); }catch(e){} $("#kitCount").textContent = state.kit.length?`(${state.kit.reduce((a,b)=>a+b.qty,0)})`:""; }
+function addKit(code, params, qty){
+  const k = JSON.stringify([code,params]); const ex = state.kit.find(i=>JSON.stringify([i.code,i.params])===k);
+  if (ex) ex.qty += qty; else state.kit.push({code, params, qty});
+  saveKit(); renderKit();
+}
+function renderKit(){
+  $("#kitBody").innerHTML = state.kit.map((it,i)=>`<tr><td><b>${it.code}</b></td><td class="muted">${Object.entries(it.params).map(([k,v])=>`${k}=${v}`).join(", ")}</td><td><input type="number" min="1" value="${it.qty}" data-i="${i}"></td><td><button class="btn sec" data-del="${i}">✕</button></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Chưa có chi tiết. Bấm “+ Thêm vào bộ in” ở tab Thiết kế hoặc chọn preset.</td></tr>`;
+  $("#kitBody").querySelectorAll("[data-i]").forEach(el=>el.onchange=()=>{ state.kit[el.dataset.i].qty=Math.max(1,parseInt(el.value)||1); saveKit(); });
+  $("#kitBody").querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>{ state.kit.splice(el.dataset.del,1); saveKit(); renderKit(); });
+}
+$("#presetStarter").onclick = () => { const C=state.cat.catalog; ["T-S","T-W","T-D","T-A","T-U","C-90","C-T","C-X","H-180","M-H","W-40"].forEach(c=>addKit(c,{...C[c].params},1)); };
+$("#presetCube").onclick = () => { addKit("T-W",{n:5,m:5,holes:"perimeter"},6); addKit("C-90",{holes:1},24); };
+$("#kitClear").onclick = () => { state.kit=[]; saveKit(); renderKit(); };
+$("#btnKit").onclick = async () => {
+  if (!state.kit.length) return;
+  $("#kitMsg").textContent = "Đang dựng toàn bộ chi tiết… (lần đầu có thể mất 1–2 phút)"; $("#btnKit").disabled = true;
+  try { const r = await post("/api/kit",{items:state.kit, profile:$("#profile").value, std:state.std}); $("#kitMsg").innerHTML = `Xong · <a href="${r.url}?dl=1">tải ZIP</a>`; location.href = r.url+"?dl=1"; }
+  catch(e){ $("#kitMsg").innerHTML = `<span class="err">${e.message}</span>`; }
+  finally { $("#btnKit").disabled = false; }
+};
+
+/* ---------------- scenes ---------------- */
+const SCENE_TXT = {
+  corner:["Góc hộp (C-90)","Tile tường đứng trên tile sàn, 3 chốt C-90, vít M3×16 + đai ốc giữ trong khe"],
+  splice:["Nối phẳng (C-X)","4 tile gặp nhau tại 1 điểm, tấm nối C-X bên dưới, 20 vít M3×12"],
+  wheel:["Bánh xe (M-H + W-40)","Tile đặc + moay-ơ M-H + bánh W-40 quay trên trục M3"],
+};
+function renderScenes(){
+  $("#sceneWrap").innerHTML = `<h3>Cụm lắp kiểm chứng</h3>` + state.cat.scenes.map(s=>`<div class="card" style="cursor:pointer" data-s="${s}"><h4>${SCENE_TXT[s]?.[0]||s}</h4><div class="muted">${SCENE_TXT[s]?.[1]||""}</div></div>`).join("");
+  $("#sceneWrap").querySelectorAll("[data-s]").forEach(el=>el.onclick=()=>loadScene(el.dataset.s));
+}
+async function loadScene(name){
+  busy(true,"Đang lắp ráp & kiểm tra va chạm…");
+  try{
+    const r = await post("/api/scene",{name, profile:$("#profile").value});
+    await show(r.parts);
+    $("#hud").innerHTML = `<span class="chip"><b>${SCENE_TXT[name]?.[0]||name}</b></span><span class="chip">${r.parts.length-r.screws} chi tiết · ${r.screws} vít</span>`;
+    $("#sceneResult").innerHTML = `<h4>Kết quả <span class="badge ${r.ok?"PASS":"FAIL"}">${r.ok?"KHỚP":"VA CHẠM"}</span></h4>` +
+      (r.ok ? `<div>Mọi vít M3 (Ø3.0) đi xuyên lỗ của tile và chốt mà không chạm vật liệu; không chi tiết nào chồng lên nhau.</div>`
+            : `<table>${r.interference.map(x=>`<tr><td>${x.a}</td><td>${x.b}</td><td class="num">${x.overlap} mm³</td></tr>`).join("")}</table>`) +
+      `<div class="dl" style="margin-top:10px"><a href="${r.step}?dl=1">Cụm lắp · STEP (có màu)<span>⬇</span></a></div>`;
+  }catch(e){ $("#sceneResult").innerHTML = `<div class="err">${e.message}</div>`; }
+  finally{ busy(false); }
+}
+
+/* ---------------- tabs ---------------- */
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  const t = b.dataset.tab; state.tab = t;
+  $("#libWrap").classList.toggle("hidden", t==="scene"); $("#sceneWrap").classList.toggle("hidden", t!=="scene");
+  $("#paneDesign").classList.toggle("hidden", t!=="design"); $("#paneScene").classList.toggle("hidden", t!=="scene"); $("#paneKit").classList.toggle("hidden", t!=="kit");
+  if (t==="scene") loadScene("corner"); else if (t==="design" && state.last) show(state.last.bodies);
+});
+
+/* ---------------- boot ---------------- */
+(async () => {
+  state.cat = await (await fetch("/api/catalog")).json();
+  $("#profile").innerHTML = `<option value="none">Không bù (chỉ danh nghĩa)</option>` +
+    Object.entries(state.cat.profiles).map(([k,d])=>`<option value="${k}" ${k==="fdm_pla"?"selected":""} title="${d}">${k}</option>`).join("");
+  $("#profile").onchange = () => { if (state.tab==="design") doBuild(); };
+  renderStd(); renderScenes(); saveKit(); renderKit();
+  selectPart("T-S");
+})();
+</script>
+</body>
+</html>

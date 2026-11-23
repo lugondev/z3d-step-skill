@@ -10,3 +10,6 @@ __pycache__/
 examples/flange/out/flange_faceted.step
 
 .DS_Store
+
+# FrameTile Studio generated files
+frametile/out/

@@ -51,3 +51,6 @@ Trong model: `from printlib import PrintProfile, teardrop_hole, nut_trap, INSERT
 - "Dựng 3D từ bản vẽ này để in PETG: `drawing.png`"
 - "Lỗ lắp vòng bi 608 in FDM thì vẽ Ø bao nhiêu?"
 - "Từ ảnh chụp cái giá đỡ này tạo file STEP, chiều rộng thật là 40mm"
+
+## FrameTile Studio (webapp)
+`frametile/`: webapp chạy local, sinh tile/chốt FrameTile MK1 (lưới 8 mm, M3, tile 4 mm) theo một chuẩn chung, kèm DRC, bù dung sai in và cụm lắp kiểm chứng. Chạy: `cd frametile && ../.venv/bin/python server.py` → http://127.0.0.1:8765. Chi tiết trong `frametile/README.md`.
