@@ -1,0 +1,12 @@
+# Python env & caches
+.venv/
+__pycache__/
+*.pyc
+
+# local Claude Code settings
+.claude/settings.local.json
+
+# large test artifact (5.5 MB faceted STL→STEP output; regenerate with z3d.sh stl2step)
+examples/flange/out/flange_faceted.step
+
+.DS_Store

@@ -1,0 +1,64 @@
+{
+  "_doc": {
+    "comp": "per feature type [a, b]: printed_actual - model = a + b*size (mm). hole = Ø of hole whose axis is vertical (Z), hole_h = Ø of horizontal-axis hole, shaft = Ø of pin/boss, outer = external linear size, inner = slot/pocket width. Model size is solved from this so the PRINTED part hits the target.",
+    "accuracy": "[a, b] -> expected ± deviation after compensation = a + b*size (mm). Used to judge if a drawing tolerance is printable.",
+    "fits": "target ACTUAL diametral clearance (hole - shaft, mm) per fit class; negative = interference.",
+    "xy_scale_pct": "material shrink compensation applied to XY sizes. Keep 0 if the slicer already scales.",
+    "post_process_stock": "material left on a hole/shaft (on Ø) when the tolerance needs drilling/reaming/sanding after printing.",
+    "note": "Generic starting values. Print the calibration coupon (calibrate.py make) and run calibrate.py fit to replace them with values measured on YOUR printer; user profiles are saved to ~/.z3d-cad/print_profiles.json and override these."
+  },
+  "fdm_pla": {
+    "desc": "FDM 0.4 mm nozzle, PLA, 0.2 mm layer (generic, uncalibrated)",
+    "layer": 0.2,
+    "comp": {"hole": [-0.15, -0.002], "hole_h": [-0.25, -0.002], "shaft": [0.05, 0.0], "outer": [0.05, 0.001], "inner": [-0.10, -0.001]},
+    "accuracy": [0.10, 0.002],
+    "xy_scale_pct": 0.0,
+    "fits": {"press": -0.10, "transition": 0.0, "snug": 0.10, "slide": 0.20, "free": 0.40, "print_in_place": 0.50},
+    "min_wall": 0.8, "min_hole": 1.5, "elephant_foot_chamfer": 0.4, "post_process_stock": 0.3
+  },
+  "fdm_petg": {
+    "desc": "FDM 0.4 mm nozzle, PETG, 0.2 mm layer (generic)",
+    "layer": 0.2,
+    "comp": {"hole": [-0.20, -0.002], "hole_h": [-0.30, -0.002], "shaft": [0.08, 0.0], "outer": [0.08, 0.001], "inner": [-0.15, -0.001]},
+    "accuracy": [0.12, 0.002],
+    "xy_scale_pct": 0.0,
+    "fits": {"press": -0.10, "transition": 0.0, "snug": 0.15, "slide": 0.25, "free": 0.45, "print_in_place": 0.55},
+    "min_wall": 0.8, "min_hole": 1.5, "elephant_foot_chamfer": 0.4, "post_process_stock": 0.3
+  },
+  "fdm_abs": {
+    "desc": "FDM 0.4 mm nozzle, ABS/ASA, 0.2 mm layer, enclosed (generic; ~0.5% shrink)",
+    "layer": 0.2,
+    "comp": {"hole": [-0.20, -0.003], "hole_h": [-0.30, -0.003], "shaft": [0.05, 0.0], "outer": [0.05, 0.0], "inner": [-0.15, -0.002]},
+    "accuracy": [0.15, 0.003],
+    "xy_scale_pct": 0.5,
+    "fits": {"press": -0.10, "transition": 0.0, "snug": 0.15, "slide": 0.25, "free": 0.45, "print_in_place": 0.55},
+    "min_wall": 1.0, "min_hole": 1.5, "elephant_foot_chamfer": 0.4, "post_process_stock": 0.3
+  },
+  "sla_resin": {
+    "desc": "MSLA/SLA standard resin, 0.05 mm layer (generic)",
+    "layer": 0.05,
+    "comp": {"hole": [-0.06, -0.001], "hole_h": [-0.08, -0.001], "shaft": [0.03, 0.0], "outer": [0.03, 0.001], "inner": [-0.05, -0.001]},
+    "accuracy": [0.05, 0.001],
+    "xy_scale_pct": 0.0,
+    "fits": {"press": -0.05, "transition": 0.0, "snug": 0.05, "slide": 0.10, "free": 0.20, "print_in_place": 0.30},
+    "min_wall": 0.6, "min_hole": 0.8, "elephant_foot_chamfer": 0.0, "post_process_stock": 0.15
+  },
+  "sls_pa12": {
+    "desc": "SLS nylon PA12, 0.1 mm layer (generic service-bureau values)",
+    "layer": 0.1,
+    "comp": {"hole": [-0.15, -0.002], "hole_h": [-0.15, -0.002], "shaft": [0.10, 0.001], "outer": [0.10, 0.002], "inner": [-0.10, -0.002]},
+    "accuracy": [0.20, 0.003],
+    "xy_scale_pct": 0.0,
+    "fits": {"press": -0.10, "transition": 0.05, "snug": 0.15, "slide": 0.30, "free": 0.50, "print_in_place": 0.60},
+    "min_wall": 0.8, "min_hole": 1.5, "elephant_foot_chamfer": 0.0, "post_process_stock": 0.3
+  },
+  "mjf_pa12": {
+    "desc": "HP MJF PA12, 0.08 mm layer (generic service-bureau values)",
+    "layer": 0.08,
+    "comp": {"hole": [-0.12, -0.002], "hole_h": [-0.12, -0.002], "shaft": [0.08, 0.001], "outer": [0.08, 0.002], "inner": [-0.08, -0.002]},
+    "accuracy": [0.20, 0.002],
+    "xy_scale_pct": 0.0,
+    "fits": {"press": -0.10, "transition": 0.05, "snug": 0.15, "slide": 0.30, "free": 0.50, "print_in_place": 0.60},
+    "min_wall": 0.7, "min_hole": 1.0, "elephant_foot_chamfer": 0.0, "post_process_stock": 0.3
+  }
+}

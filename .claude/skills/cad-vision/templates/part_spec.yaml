@@ -1,0 +1,47 @@
+# Part spec extracted from image(s). Every value has a source:
+#   drawing | derived | measured | assumed | user
+part:
+  name: Mounting bracket
+  source_images: [input/drawing.png]
+  input_type: engineering_drawing   # engineering_drawing | sketch | photo | render
+  drawing_no: BR-102 rev B
+  units: mm
+  projection: first_angle            # first_angle | third_angle | n/a
+  scale: "1:1"
+  material: "AL6061-T6 on drawing → printed in PLA"
+  general_tolerance: ISO 2768-m
+  process: 3d_print
+
+print:                      # 3D printing setup (z3d.sh tol profiles)
+  profile: fdm_pla
+  orientation: "bottom face on bed, Z up = model Z"
+  general_tolerance_class: m   # ISO 2768 class used for untoleranced dims
+
+datums:
+  origin: "center of bottom face (datum A = bottom, B = back face, C = symmetry plane)"
+  axes: "Z up, front view looks along +Y"
+
+params:                     # names map 1:1 to the CadQuery P dict
+  # feature: hole | hole_h | shaft | outer | inner | z | none (default none = not compensated)
+  # tol: H7 | g6 | ±0.1 | +0.2/-0   (omit → general tolerance)   or  fit: press|transition|snug|slide|free|print_in_place + mate: bought|printed|bought-hole
+  L:        {value: 80,   source: drawing,  feature: outer, note: "overall length"}
+  W:        {value: 50,   source: drawing,  feature: outer}
+  T:        {value: 10,   source: drawing,  feature: z}
+  hole_d:   {value: 6.6,  source: drawing,  feature: hole, tol: "+0.2/-0", note: "4× Ø6.6 THRU (M6 clearance)"}
+  pin_bore: {value: 8,    source: drawing,  feature: hole, tol: H7, note: "dowel pin seat"}
+  bearing_seat: {value: 22, source: assumed, feature: hole, fit: press, mate: bought, note: "608 bearing OD, no tol on drawing"}
+  hole_inset: {value: 8,  source: drawing,  note: "position — never compensated"}
+  fillet_r: {value: 3,    source: assumed,  note: "corner radius not dimensioned"}
+  chamfer:  {value: 0.5,  source: drawing,  note: "note 2: break edges 0.5"}
+
+features:                   # build order
+  - base plate L×W×T, vertical corners R fillet_r
+  - 4× hole_d THRU on rectangle (L-2·inset)×(W-2·inset)
+  - top outer edges chamfer
+
+annotations_not_modelled:
+  - "Ra 1.6 on top face"
+  - "flatness 0.05 on datum A"
+
+open_questions:
+  - "Corner radius not dimensioned — assumed R3"

@@ -1,0 +1,33 @@
+part:
+  name: Hub flange
+  source_images: [drawing.png]
+  input_type: engineering_drawing
+  drawing_no: FL-075
+  units: mm
+  projection: first_angle      # title block; top view placed below section A-A
+  scale: "1:1"
+  material: S45C (drawing) -> printed instead
+  general_tolerance: ISO 2768-m
+print:
+  profile: fdm_pla             # z3d.sh tol profiles
+  orientation: "flange face down on the bed, bore axis = Z"
+  general_tolerance_class: m
+datums:
+  origin: "bore axis, bottom face of flange at Z=0"
+  axes: "Z up (bore axis); section A-A = XZ plane"
+params:
+  flange_d:  {value: 100, source: drawing, feature: outer}
+  flange_t:  {value: 12,  source: drawing, feature: z}
+  hub_d:     {value: 50,  source: drawing, feature: shaft}
+  total_h:   {value: 30,  source: drawing, feature: z}
+  bore_d:    {value: 25,  source: drawing, feature: hole, tol: H7, note: "H7 on drawing"}
+  pcd:       {value: 75,  source: drawing, note: "position, not compensated"}
+  n_holes:   {value: 6,   source: drawing}
+  hole_d:    {value: 9,   source: drawing, feature: hole, tol: "+0.3/+0", note: "M8 clearance; ISO 273 medium Ø9"}
+  hole_start_deg: {value: 90, source: drawing}
+  hub_chamfer: {value: 1, source: drawing}
+  edge_break: {value: 0.5, source: drawing}
+annotations_not_modelled: ["ISO 2768-m general tolerance"]
+open_questions:
+  - "Section A-A shows bolt holes on the A-A line, top view does not; followed the top view + callout."
+  - "Bore Ø25 H7 (band 0.021) is far below FDM capability: printed undersize, ream to H7 — or tell me what mates in it (bearing? shaft?) to use a print-native fit instead."
