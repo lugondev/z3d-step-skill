@@ -67,10 +67,8 @@ def tol_table(ctx_print: E.Ctx, code: str):
         ("Lỗ M3 đứng (in phẳng)", "hole", S["hole"], ctx_print.hole_v),
         ("Lỗ M3 ngang (teardrop)", "hole_h", S["hole"], ctx_print.hole_h),
     ]
-    if code in ("C-90", "M-H"):
+    if code == "M-H":
         rows.append(("Khe/hốc đai ốc M3 (AF)", "inner", S["nut_af"] + 0.1, ctx_print.m(S["nut_af"] + 0.1, "inner")))
-    if code == "C-90":
-        rows.append(("Bề dày khe đai ốc", "inner", S["nut_t"] + 0.3, ctx_print.m(S["nut_t"] + 0.3, "inner")))
     if code == "W-40":
         rows.append(("Lỗ trục bánh (lắp lỏng M3)", "hole", 3.4, ctx_print.m(3.4, "hole")))
         rows.append(("Lỗ trong lốp TPU (ép)", "hole", 28 - S["tire_squeeze"], ctx_print.m(28 - S["tire_squeeze"], "hole")))
@@ -82,7 +80,7 @@ def tol_table(ctx_print: E.Ctx, code: str):
 
 def build(code, params, profile, std):
     std = _clean_std(std)
-    key = _key(dict(code=code, params=params, profile=profile, std=std, v=5))
+    key = _key(dict(code=code, params=params, profile=profile, std=std, v=7))
     d = CACHE / key
     meta = d / "meta.json"
     if meta.exists():
@@ -132,38 +130,45 @@ def build(code, params, profile, std):
 
 
 def scene(name, profile):
-    key = _key(dict(scene=name, v=3))
+    key = _key(dict(scene=name, v=6))
     d = CACHE / key
     meta = d / "meta.json"
     if meta.exists():
         return json.loads(meta.read_text())
+    if name not in A.SCENES:
+        raise ValueError(f"unknown scene {name}")
     with LOCK:
-        items, screws = A.SCENES[name]()
-        bad = A.check_scene(items, screws)
+        t0 = time.time()
+        sc = A.SCENES[name]()
+        bad = A.check_scene(sc)
         d.mkdir(parents=True, exist_ok=True)
         parts = []
-        for i, (n, s, col) in enumerate(items):
+        for i, (n, s, col, _) in enumerate(sc.items):
             fn = f"p{i}.stl"
             _export(s, d / fn)
             parts.append(dict(name=n, color=col, stl=f"/files/{key}/{fn}"))
-        for i, (n, s) in enumerate(screws):
-            fn = f"s{i}.stl"
-            _export(s, d / fn)
-            parts.append(dict(name=n, color="#8a9099", stl=f"/files/{key}/{fn}", screw=True))
-        fn = f"scene_{name}.step"
+        # all screws in ONE mesh (keeps the viewer light)
+        fn = "screws.stl"
+        _export(cq.Compound.makeCompound([s for _, s, _ in sc.screws]), d / fn)
+        parts.append(dict(name="screws", color="#8a9099", stl=f"/files/{key}/{fn}", screw=True))
+        fn = f"template_{name}.step"
         asm = cq.Assembly()
-        for i, (n, s, col) in enumerate(items):
+        for i, (n, s, col, _) in enumerate(sc.items):
             asm.add(s, name=f"{i}_{n}".replace(" ", "_").replace("#", ""), color=cq.Color(col))
         asm.save(str(d / fn))
-        res = dict(key=key, name=name, parts=parts, interference=bad, ok=not bad, screws=len(screws),
-                   step=f"/files/{key}/{fn}")
+        bom, hw = sc.bom_list()
+        bb = cq.Compound.makeCompound([s for _, s, _, _ in sc.items]).BoundingBox()
+        res = dict(key=key, name=name, title=sc.title, template=name in A.TEMPLATES, parts=parts,
+                   n_parts=len(sc.items), interference=bad, ok=not bad, screws=len(sc.screws),
+                   bom=bom, hardware=hw, size=[round(bb.xlen), round(bb.ylen), round(bb.zlen)],
+                   step=f"/files/{key}/{fn}", seconds=round(time.time() - t0, 1))
         meta.write_text(json.dumps(res, ensure_ascii=False))
         return res
 
 
 def kit(items, profile, std):
     std = _clean_std(std)
-    key = _key(dict(kit=items, profile=profile, std=std, v=3))
+    key = _key(dict(kit=items, profile=profile, std=std, v=5))
     zpath = CACHE / f"frametile_kit_{key}.zip"
     if zpath.exists():
         return dict(url=f"/files/_/{zpath.name}")
@@ -225,7 +230,7 @@ class H(BaseHTTPRequestHandler):
                     for c, v in E.CATALOG.items()}
             return self._json(dict(catalog=E.CATALOG, spec=spec, standard=E.STANDARD,
                                    profiles={k: v.get("desc", "") for k, v in load_profiles().items()},
-                                   scenes=list(A.SCENES), std_editable=STD_EDITABLE))
+                                   scenes=list(A.SCENES), templates=list(A.TEMPLATES), std_editable=STD_EDITABLE))
         if path.startswith("/files/"):
             parts = path.split("/")
             if len(parts) != 4 or ".." in parts:
@@ -261,10 +266,24 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--no-warm", action="store_true", help="do not pre-build templates at startup")
     a = ap.parse_args()
     srv = ThreadingHTTPServer((a.host, a.port), H)
     print(f"FrameTile Studio → http://{a.host}:{a.port}")
+    if not a.no_warm:
+        threading.Thread(target=_warm, daemon=True).start()
     srv.serve_forever()
+
+
+def _warm():
+    """pre-build templates so the first click is instant (results are cached on disk)."""
+    for name in A.SCENES:
+        try:
+            t0 = time.time()
+            r = scene(name, None)
+            print(f"  template {name}: {'OK' if r['ok'] else 'FAIL'} ({time.time() - t0:.0f}s)", flush=True)
+        except Exception as e:  # never kill the server
+            print(f"  template {name}: {type(e).__name__}: {e}", flush=True)
 
 
 if __name__ == "__main__":

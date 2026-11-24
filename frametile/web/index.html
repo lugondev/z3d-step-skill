@@ -50,6 +50,7 @@ h3:first-child{margin-top:2px}
 .spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;margin-right:10px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.scard svg{flex:0 0 48px}
 .card h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
 .form{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
@@ -74,6 +75,10 @@ details summary{cursor:pointer;color:var(--muted);font-size:12px;margin:4px 0}
 .std{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:12px}
 .std span:nth-child(odd){color:var(--muted)}
 .kitlist td input{width:52px}
+.kitlist tbody tr[data-row]{cursor:pointer}
+.kitlist tbody tr.sel td{background:var(--accent-soft)}
+.kitlist tbody tr.sel td:first-child{box-shadow:inset 3px 0 var(--accent)}
+.btn.sec.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 .hidden{display:none!important}
 @media (max-width:1000px){ main{grid-template-columns:1fr;height:auto} #viewer{height:60vh} aside .lib{grid-template-columns:repeat(4,1fr)} header{flex-wrap:wrap}}
 </style>
@@ -87,7 +92,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:12px;margin:4px 0}
   </div>
   <nav class="tabs">
     <button data-tab="design" class="on">Thiết kế</button>
-    <button data-tab="scene">Lắp thử</button>
+    <button data-tab="scene">Mẫu &amp; lắp thử</button>
     <button data-tab="kit">Bộ in <span id="kitCount" class="muted"></span></button>
   </nav>
   <div class="grow"></div>
@@ -124,15 +129,19 @@ details summary{cursor:pointer;color:var(--muted);font-size:12px;margin:4px 0}
       </div>
       <div id="result"></div>
     </div>
-    <div id="paneScene" class="hidden"><div id="sceneResult" class="card"><div class="muted">Chọn một cụm lắp ở cột trái. Mỗi cụm đặt các chi tiết theo quy tắc lưới, cắm vít M3 vào mọi lỗ và kiểm tra va chạm.</div></div></div>
+    <div id="paneScene" class="hidden"><div id="sceneResult" class="card"><div class="muted">Chọn một mẫu ở cột trái. Mỗi mẫu chỉ dùng chi tiết trong thư viện, đặt theo lưới, cắm vít M3 vào mọi lỗ rồi kiểm tra: không chồng hình, vít không chạm vật liệu, mỗi vít bắt ít nhất 2 chi tiết.</div></div></div>
     <div id="paneKit" class="hidden">
       <div class="card">
         <h4>Bộ in</h4>
         <div class="row" style="margin-bottom:8px">
           <button class="btn sec" id="presetStarter">Starter set (10 loại)</button>
-          <button class="btn sec" id="presetCube">Hộp 5×5×5</button>
+          <button class="btn sec" data-tpl="rover">Rover</button>
+          <button class="btn sec" data-tpl="rocket">Rocket</button>
+          <button class="btn sec" data-tpl="building">Building</button>
+          <button class="btn sec" data-tpl="box">Hộp 5×5×5</button>
           <button class="btn sec" id="kitClear">Xoá hết</button>
         </div>
+        <div class="row" style="margin-bottom:6px"><button class="btn sec" id="kitAll">▦ Xem cả bộ</button><span class="muted">Bấm 1 dòng để xem riêng chi tiết đó.</span></div>
         <table class="kitlist"><thead><tr><th>Mã</th><th>Tham số</th><th>SL</th><th></th></tr></thead><tbody id="kitBody"></tbody></table>
         <div class="row" style="margin-top:10px"><button class="btn" id="btnKit">Tải ZIP (STEP + STL + BOM)</button></div>
         <div id="kitMsg" class="muted" style="margin-top:8px"></div>
@@ -159,7 +168,7 @@ const ICON = {
   "T-P":'<rect x="5" y="5" width="32" height="32" rx="4" class="f"/>',
   "T-A":'<path d="M6 36h30L22 6H6z"/>',
   "T-U":'<path d="M6 37V20a15 15 0 0 1 30 0v17M13 37V20a8 8 0 0 1 16 0v17"/>',
-  "C-90":'<path d="M8 6v30h28v-9H17V6z" class="o"/>',
+  "C-90":'<path d="M5 28V24h0a6 6 0 0 1 12 0h4a6 6 0 0 1 12 0h6v4z" class="o"/><circle cx="11" cy="23" r="1.8" fill="#fff"/><circle cx="27" cy="23" r="1.8" fill="#fff"/>',
   "C-T":'<path d="M4 14h34v12H27v12H15V26H4z" class="o"/>',
   "C-X":'<path d="M15 4h12v11h11v12H27v11H15V27H4V15h11z" class="o"/>',
   "C-I":'<rect x="4" y="15" width="34" height="12" rx="3" class="o"/>',
@@ -203,15 +212,29 @@ function fit(){
   const box = new THREE.Box3().setFromObject(group); if (box.isEmpty()) return;
   const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3()).length();
   controls.target.copy(c);
-  camera.position.copy(c).add(new THREE.Vector3(.75,-1.1,.9).normalize().multiplyScalar(s*1.35+20));
+  const vf = THREE.MathUtils.degToRad(camera.fov)/2, hf = Math.atan(Math.tan(vf)*camera.aspect);
+  const d = (s/2) / Math.sin(Math.min(vf, hf)) * 1.05 + 10;   // whole bounding sphere in view, either orientation
+  camera.position.copy(c).add(new THREE.Vector3(.75,-1.1,.9).normalize().multiplyScalar(d));
   camera.near = s/100; camera.far = s*20+500; camera.updateProjectionMatrix();
   if (grid) grid.position.set(Math.round(c.x/8)*8, Math.round(c.y/8)*8, box.min.z-0.01);
 }
 const loader = new STLLoader();
-async function show(items){
+async function show(items, pack=false){
   const next = new THREE.Group();
-  await Promise.all(items.map(async it => {
-    const geo = await loader.loadAsync(it.stl + "?t=" + Date.now()%1e9);
+  const geos = await Promise.all(items.map(it => loader.loadAsync(it.stl + "?t=" + Date.now()%1e9)));
+  if (pack) {   // lay parts out flat on the bed, shelf-packed, 10 mm apart
+    geos.forEach(g=>g.computeBoundingBox());
+    const sz = geos.map(g=>g.boundingBox.getSize(new THREE.Vector3()));
+    const rowW = Math.max(Math.sqrt(sz.reduce((a,v)=>a+(v.x+10)*(v.y+10),0))*1.4, ...sz.map(v=>v.x));
+    let x=0, y=0, rowH=0;
+    [...geos.keys()].sort((a,b)=>sz[b].y-sz[a].y).forEach(i=>{
+      if (x>0 && x+sz[i].x>rowW){ x=0; y+=rowH+10; rowH=0; }
+      const m = geos[i].boundingBox.min; items[i] = {...items[i], offset:[x-m.x, -(y+sz[i].y)-m.y, -m.z]};
+      x += sz[i].x+10; rowH = Math.max(rowH, sz[i].y);
+    });
+  }
+  items.forEach((it, i) => {
+    const geo = geos[i];
     geo.computeVertexNormals();
     const mat = new THREE.MeshStandardMaterial({color: it.color, roughness:.55, metalness:.05, transparent:!!it.screw, opacity: it.screw?.85:1});
     const mesh = new THREE.Mesh(geo, mat);
@@ -221,7 +244,7 @@ async function show(items){
       const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({color: 0x000000, transparent:true, opacity:.25}));
       e.position.copy(mesh.position); e.userData.edge = true; next.add(e);
     }
-  }));
+  });
   scene.remove(group); group = next; scene.add(group);
   const s = new THREE.Box3().setFromObject(group).getSize(new THREE.Vector3());
   makeGrid(Math.max(s.x,s.y)); fit();
@@ -279,7 +302,7 @@ function renderStd(){
   const lbl = {rim:"Viền tile (mm)",brace:"Thanh giằng (mm)",inner_r:"Bo góc trong R",edge_round:"Bo cạnh trên",ef_chamfer:"Vát chân voi",wall_min:"Thành tối thiểu",knuckle_gap:"Khe bản lề",tire_squeeze:"Ép lốp TPU"};
   $("#stdForm").innerHTML = ed.map(k=>`<label>${lbl[k]||k}<input data-s="${k}" type="number" step="0.1" placeholder="${S[k]}" value="${state.std[k]??""}"></label>`).join("");
   $("#stdForm").querySelectorAll("[data-s]").forEach(el => el.onchange = () => { if (el.value==="") delete state.std[el.dataset.s]; else state.std[el.dataset.s]=parseFloat(el.value); if ($("#auto").checked) doBuild(); });
-  const names = {grid:"Lưới",tile_t:"Dày tile",hole:"Lỗ M3",wall_min:"Thành tối thiểu",fillet_min:"Bo góc tối thiểu",inner_r:"Bo góc trong",rim:"Viền",brace:"Giằng",conn:"Tiết diện connector",edge_round:"Bo cạnh trên",ef_chamfer:"Vát chân voi",nut_af:"Đai ốc M3 (AF)",nut_t:"Đai ốc M3 (dày)",knuckle_gap:"Khe bản lề",tire_squeeze:"Ép lốp"};
+  const names = {grid:"Lưới",tile_t:"Dày tile",hole:"Lỗ M3",wall_min:"Thành tối thiểu",fillet_min:"Bo góc tối thiểu",inner_r:"Bo góc trong",rim:"Viền",brace:"Giằng",conn:"Bề rộng connector",tab_t:"Dày tai ke C-90",edge_round:"Bo cạnh trên",ef_chamfer:"Vát chân voi",nut_af:"Đai ốc M3 (AF)",nut_t:"Đai ốc M3 (dày)",knuckle_gap:"Khe bản lề",tire_squeeze:"Ép lốp"};
   $("#stdView").innerHTML = Object.entries(S).map(([k,v])=>`<span>${names[k]||k}</span><span>${v} mm</span>`).join("");
 }
 let seq = 0;
@@ -289,14 +312,14 @@ async function doBuild(){
   try {
     const r = await post("/api/build", {code:state.code, params:state.params, profile:$("#profile").value, std:state.std});
     if (my !== seq) return;
-    state.last = r; renderResult(r); await show(r.bodies);
+    state.last = r; renderResult(r); if (state.tab === "design") { $("#hud").innerHTML = r.hud; await show(r.bodies); }
     $("#btnAddKit").disabled = false;
   } catch(e){ if (my===seq) $("#result").innerHTML = `<div class="card err">${e.message}</div>`; }
   finally { if (my===seq) busy(false); }
 }
 function renderResult(r){
   const hud = r.bodies.map(b=>`<span class="chip"><b>${b.name}</b> ${b.size.map(v=>v.toFixed(1)).join(" × ")} mm · ${b.mass} g</span>`).join("");
-  $("#hud").innerHTML = hud + `<span class="chip">hiển thị: <b>${r.view_variant}</b></span>`;
+  r.hud = hud + `<span class="chip">hiển thị: <b>${r.view_variant}</b></span>`;
   let h = `<div class="card"><h4>Kiểm tra luật thiết kế <span class="badge ${r.summary}">${r.summary}</span><span class="muted" style="margin-left:auto">${r.seconds}s</span></h4>`;
   for (const [body, rows] of Object.entries(r.drc)){
     if (Object.keys(r.drc).length>1) h += `<div class="muted" style="margin-top:6px"><b>${body}</b></div>`;
@@ -326,14 +349,51 @@ function addKit(code, params, qty){
   if (ex) ex.qty += qty; else state.kit.push({code, params, qty});
   saveKit(); renderKit();
 }
-function renderKit(){
-  $("#kitBody").innerHTML = state.kit.map((it,i)=>`<tr><td><b>${it.code}</b></td><td class="muted">${Object.entries(it.params).map(([k,v])=>`${k}=${v}`).join(", ")}</td><td><input type="number" min="1" value="${it.qty}" data-i="${i}"></td><td><button class="btn sec" data-del="${i}">✕</button></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Chưa có chi tiết. Bấm “+ Thêm vào bộ in” ở tab Thiết kế hoặc chọn preset.</td></tr>`;
-  $("#kitBody").querySelectorAll("[data-i]").forEach(el=>el.onchange=()=>{ state.kit[el.dataset.i].qty=Math.max(1,parseInt(el.value)||1); saveKit(); });
-  $("#kitBody").querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>{ state.kit.splice(el.dataset.del,1); saveKit(); renderKit(); });
+let kseq = 0;
+async function kitPreview(i){
+  const my = ++kseq; state.kitSel = i; markKit();
+  if (!state.kit.length){ $("#hud").innerHTML = `<span class="chip">Bộ in trống</span>`; await show([]); return; }
+  const items = i==="all" ? state.kit : [state.kit[i]];
+  busy(true, i==="all" ? `Đang dựng ${items.length} loại chi tiết…` : `Đang dựng ${items[0].code}…`);
+  try {
+    const bodies = [];
+    for (const it of items){   // sequential: server builds under one lock, cached parts come back instantly
+      const r = await post("/api/build",{code:it.code, params:it.params, profile:$("#profile").value, std:state.std});
+      if (my!==kseq || state.tab!=="kit") return;
+      bodies.push(...r.bodies.map(b=>({...b, _code:it.code, _qty:it.qty})));
+    }
+    await show(bodies, i==="all");
+    const n = state.kit.reduce((a,b)=>a+b.qty,0);
+    $("#hud").innerHTML = i==="all"
+      ? `<span class="chip"><b>Cả bộ</b></span><span class="chip">${state.kit.length} loại · ${n} chi tiết in</span><span class="chip">mỗi loại hiện 1 cái, xếp phẳng như trên bàn in</span>`
+      : `<span class="chip"><b>${items[0].code}</b> × ${items[0].qty}</span>` + bodies.map(b=>`<span class="chip">${b.name} ${b.size.map(v=>v.toFixed(1)).join(" × ")} mm · ${b.mass} g</span>`).join("");
+  } catch(e){ if (my===kseq) $("#kitMsg").innerHTML = `<span class="err">${e.message}</span>`; }
+  finally { if (my===kseq) busy(false); }
 }
-$("#presetStarter").onclick = () => { const C=state.cat.catalog; ["T-S","T-W","T-D","T-A","T-U","C-90","C-T","C-X","H-180","M-H","W-40"].forEach(c=>addKit(c,{...C[c].params},1)); };
-$("#presetCube").onclick = () => { addKit("T-W",{n:5,m:5,holes:"perimeter"},6); addKit("C-90",{holes:1},24); };
-$("#kitClear").onclick = () => { state.kit=[]; saveKit(); renderKit(); };
+function markKit(){
+  $("#kitBody").querySelectorAll("tr[data-row]").forEach(tr=>tr.classList.toggle("sel", +tr.dataset.row===state.kitSel));
+  $("#kitAll").classList.toggle("on", state.kitSel==="all");
+}
+function renderKit(){
+  $("#kitBody").innerHTML = state.kit.map((it,i)=>`<tr data-row="${i}"><td><b>${it.code}</b></td><td class="muted">${Object.entries(it.params).map(([k,v])=>`${k}=${v}`).join(", ")}</td><td><input type="number" min="1" value="${it.qty}" data-i="${i}"></td><td><button class="btn sec" data-del="${i}">✕</button></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Chưa có chi tiết. Bấm “+ Thêm vào bộ in” ở tab Thiết kế hoặc chọn preset.</td></tr>`;
+  $("#kitBody").querySelectorAll("[data-i]").forEach(el=>el.onchange=()=>{ state.kit[el.dataset.i].qty=Math.max(1,parseInt(el.value)||1); saveKit(); });
+  $("#kitBody").querySelectorAll("[data-del]").forEach(el=>el.onclick=e=>{ e.stopPropagation(); const d=+el.dataset.del; state.kit.splice(d,1); saveKit(); renderKit();
+    if (state.tab==="kit") kitPreview(state.kitSel==="all" ? "all" : Math.min(state.kitSel===d ? d : state.kitSel - (state.kitSel>d), state.kit.length-1)); });
+  $("#kitBody").querySelectorAll("tr[data-row]").forEach(tr=>tr.onclick=e=>{ if (e.target.tagName!=="INPUT") kitPreview(+tr.dataset.row); });
+  markKit();
+}
+$("#presetStarter").onclick = () => { const C=state.cat.catalog; ["T-S","T-W","T-D","T-A","T-U","C-90","C-T","C-X","H-180","M-H","W-40"].forEach(c=>addKit(c,{...C[c].params},1)); kitPreview("all"); };
+async function addTemplate(name, btn){
+  const old = btn && btn.textContent; if (btn){ btn.disabled = true; btn.textContent = "Đang tính BOM…"; }
+  try { const r = await post("/api/scene",{name, profile:$("#profile").value}); r.bom.forEach(b=>addKit(b.code, b.params, b.qty)); $("#kitMsg").textContent = `Đã thêm mẫu ${r.title}: ${r.n_parts} chi tiết in, ${r.screws} vít M3 + đai ốc. Bấm “Xem cả bộ” hoặc 1 dòng để xem từng chi tiết.`;
+    if (state.tab==="kit"){ ++kseq; state.kitSel = null; markKit(); await show(r.parts);
+      $("#hud").innerHTML = `<span class="chip"><b>${r.title}</b> (đã lắp)</span><span class="chip">${r.size.join(" × ")} mm</span><span class="chip">${r.n_parts} chi tiết · ${r.screws} vít</span>`; } }
+  catch(e){ $("#kitMsg").innerHTML = `<span class="err">${e.message}</span>`; }
+  finally { if (btn){ btn.disabled = false; btn.textContent = old; } }
+}
+document.querySelectorAll("[data-tpl]").forEach(b=>b.onclick=()=>addTemplate(b.dataset.tpl, b));
+$("#kitClear").onclick = () => { state.kit=[]; saveKit(); renderKit(); kitPreview(0); };
+$("#kitAll").onclick = () => kitPreview("all");
 $("#btnKit").onclick = async () => {
   if (!state.kit.length) return;
   $("#kitMsg").textContent = "Đang dựng toàn bộ chi tiết… (lần đầu có thể mất 1–2 phút)"; $("#btnKit").disabled = true;
@@ -344,24 +404,43 @@ $("#btnKit").onclick = async () => {
 
 /* ---------------- scenes ---------------- */
 const SCENE_TXT = {
-  corner:["Góc hộp (C-90)","Tile tường đứng trên tile sàn, 3 chốt C-90, vít M3×16 + đai ốc giữ trong khe"],
+  rover:["Rover 4 bánh","Thân 112×48, vách đặc T-P mang 4 moay-ơ M-H + bánh W-40, sàn T-W, nóc T-S"],
+  rocket:["Rocket","Thân trắng 48×48, 4 cánh cam, nắp T-P và mũi chong chóng 4 lá T-A nhọn ở mọi hướng nhìn"],
+  building:["Building 3 tầng","Tháp 48×48, tường cửa sổ T-W, sàn tối làm dải tầng, mái cam, tầng trệt giằng T-D"],
+  box:["Hộp 5×5×5","6 tile T-W + 12 ke C-90 (4 đáy, 4 nắp, 4 góc đứng)"],
+  corner:["Góc 90° (C-90)","2 tile vuông góc, 2 ke C-90 dọc cạnh — kiểu ghép dùng cho mọi mẫu"],
   splice:["Nối phẳng (C-X)","4 tile gặp nhau tại 1 điểm, tấm nối C-X bên dưới, 20 vít M3×12"],
-  wheel:["Bánh xe (M-H + W-40)","Tile đặc + moay-ơ M-H + bánh W-40 quay trên trục M3"],
+};
+const SCENE_ICON = {
+  rover:`<svg viewBox="0 0 48 32" width="48" height="32"><rect x="6" y="8" width="36" height="12" rx="2" fill="#d9d9d6" stroke="#8a9099"/><circle cx="14" cy="22" r="7" fill="#2b2b2b"/><circle cx="34" cy="22" r="7" fill="#2b2b2b"/><circle cx="14" cy="22" r="3" fill="#f07c1e"/><circle cx="34" cy="22" r="3" fill="#f07c1e"/></svg>`,
+  rocket:`<svg viewBox="0 0 48 32" width="48" height="32"><path d="M24 2 30 10H18z" fill="#f07c1e"/><rect x="18" y="10" width="12" height="17" fill="#d9d9d6" stroke="#8a9099"/><path d="M18 20 12 30h6zM30 20l6 10h-6z" fill="#f07c1e"/></svg>`,
+  building:`<svg viewBox="0 0 48 32" width="48" height="32"><rect x="12" y="3" width="24" height="27" fill="#d9d9d6" stroke="#8a9099"/><g fill="#8a9099"><rect x="16" y="7" width="6" height="6"/><rect x="26" y="7" width="6" height="6"/><rect x="16" y="19" width="6" height="6"/><rect x="26" y="19" width="6" height="6"/></g></svg>`,
+  box:`<svg viewBox="0 0 48 32" width="48" height="32"><path d="M14 10 24 5l10 5v12l-10 5-10-5z" fill="#d9d9d6" stroke="#8a9099"/><path d="M14 10l10 5 10-5M24 15v12" fill="none" stroke="#f07c1e" stroke-width="2"/></svg>`,
 };
 function renderScenes(){
-  $("#sceneWrap").innerHTML = `<h3>Cụm lắp kiểm chứng</h3>` + state.cat.scenes.map(s=>`<div class="card" style="cursor:pointer" data-s="${s}"><h4>${SCENE_TXT[s]?.[0]||s}</h4><div class="muted">${SCENE_TXT[s]?.[1]||""}</div></div>`).join("");
+  const card = s => `<div class="card scard" style="cursor:pointer;display:flex;gap:10px;align-items:center" data-s="${s}">${SCENE_ICON[s]||""}<div><h4 style="margin:0 0 4px">${SCENE_TXT[s]?.[0]||s}</h4><div class="muted">${SCENE_TXT[s]?.[1]||""}</div></div></div>`;
+  const demos = state.cat.scenes.filter(s=>!state.cat.templates.includes(s));
+  $("#sceneWrap").innerHTML = `<h3>Mẫu dựng sẵn</h3>` + state.cat.templates.map(card).join("") + `<h3>Cụm kiểm chứng</h3>` + demos.map(card).join("");
   $("#sceneWrap").querySelectorAll("[data-s]").forEach(el=>el.onclick=()=>loadScene(el.dataset.s));
 }
 async function loadScene(name){
-  busy(true,"Đang lắp ráp & kiểm tra va chạm…");
+  state.scene = name;
+  $("#sceneWrap").querySelectorAll("[data-s]").forEach(el=>el.style.borderColor = el.dataset.s===name ? "var(--accent)" : "");
+  busy(true,"Đang lắp ráp & kiểm tra (lần đầu mẫu lớn mất ~1 phút)…");
   try{
     const r = await post("/api/scene",{name, profile:$("#profile").value});
+    if (state.scene !== name || state.tab !== "scene") return;   // user moved on meanwhile
     await show(r.parts);
-    $("#hud").innerHTML = `<span class="chip"><b>${SCENE_TXT[name]?.[0]||name}</b></span><span class="chip">${r.parts.length-r.screws} chi tiết · ${r.screws} vít</span>`;
-    $("#sceneResult").innerHTML = `<h4>Kết quả <span class="badge ${r.ok?"PASS":"FAIL"}">${r.ok?"KHỚP":"VA CHẠM"}</span></h4>` +
-      (r.ok ? `<div>Mọi vít M3 (Ø3.0) đi xuyên lỗ của tile và chốt mà không chạm vật liệu; không chi tiết nào chồng lên nhau.</div>`
-            : `<table>${r.interference.map(x=>`<tr><td>${x.a}</td><td>${x.b}</td><td class="num">${x.overlap} mm³</td></tr>`).join("")}</table>`) +
-      `<div class="dl" style="margin-top:10px"><a href="${r.step}?dl=1">Cụm lắp · STEP (có màu)<span>⬇</span></a></div>`;
+    $("#hud").innerHTML = `<span class="chip"><b>${r.title}</b></span><span class="chip">${r.size.join(" × ")} mm</span><span class="chip">${r.n_parts} chi tiết · ${r.screws} vít</span>`;
+    const bomRows = r.bom.map(b=>`<tr><td><b>${b.code}</b></td><td class="muted">${Object.entries(b.params).map(([k,v])=>`${k}=${v}`).join(", ")}</td><td class="num">${b.qty}</td></tr>`).join("");
+    const hwRows = r.hardware.map(h=>`<tr><td colspan="2">${h.item}</td><td class="num">${h.qty}</td></tr>`).join("");
+    $("#sceneResult").innerHTML = `<h4>${r.title} <span class="badge ${r.ok?"PASS":"FAIL"}">${r.ok?"LẮP ĐƯỢC":"LỖI LẮP"}</span></h4>` +
+      (r.ok ? `<div class="muted">Không chi tiết nào chồng nhau; ${r.screws} vít đi xuyên lỗ, đầu vít và đai ốc không chạm chi tiết nào, mỗi vít bắt ít nhất 2 chi tiết.</div>`
+            : `<table>${r.interference.map(x=>`<tr><td>${x.kind}</td><td>${x.a}</td><td>${x.b}</td><td class="num">${x.overlap} mm³</td></tr>`).join("")}</table>`) +
+      `<h4 style="margin-top:12px">Danh sách in (BOM)</h4><table><thead><tr><th>Mã</th><th>Tham số</th><th>SL</th></tr></thead><tbody>${bomRows}${hwRows}</tbody></table>` +
+      `<div class="row" style="margin-top:10px"><button class="btn" id="btnTplKit">+ Thêm cả mẫu vào bộ in</button></div>` +
+      `<div class="dl" style="margin-top:10px"><a href="${r.step}?dl=1">Cả mẫu lắp ráp · STEP (có màu)<span>⬇</span></a></div>`;
+    $("#btnTplKit").onclick = () => { r.bom.forEach(b=>addKit(b.code, b.params, b.qty)); $("#btnTplKit").textContent = "✓ Đã thêm — xem tab Bộ in"; };
   }catch(e){ $("#sceneResult").innerHTML = `<div class="err">${e.message}</div>`; }
   finally{ busy(false); }
 }
@@ -372,7 +451,9 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
   const t = b.dataset.tab; state.tab = t;
   $("#libWrap").classList.toggle("hidden", t==="scene"); $("#sceneWrap").classList.toggle("hidden", t!=="scene");
   $("#paneDesign").classList.toggle("hidden", t!=="design"); $("#paneScene").classList.toggle("hidden", t!=="scene"); $("#paneKit").classList.toggle("hidden", t!=="kit");
-  if (t==="scene") loadScene("corner"); else if (t==="design" && state.last) show(state.last.bodies);
+  if (t==="scene") loadScene(state.scene || "rover");
+  else if (t==="kit") kitPreview(typeof state.kitSel==="number" && state.kitSel<state.kit.length ? state.kitSel : (state.kit.length>1 ? "all" : 0));
+  else if (t==="design" && state.last) { $("#hud").innerHTML = state.last.hud; show(state.last.bodies); }
 });
 
 /* ---------------- boot ---------------- */
@@ -380,7 +461,7 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
   state.cat = await (await fetch("/api/catalog")).json();
   $("#profile").innerHTML = `<option value="none">Không bù (chỉ danh nghĩa)</option>` +
     Object.entries(state.cat.profiles).map(([k,d])=>`<option value="${k}" ${k==="fdm_pla"?"selected":""} title="${d}">${k}</option>`).join("");
-  $("#profile").onchange = () => { if (state.tab==="design") doBuild(); };
+  $("#profile").onchange = () => { if (state.tab==="design") doBuild(); else if (state.tab==="kit" && state.kitSel!=null) kitPreview(state.kitSel); };
   renderStd(); renderScenes(); saveKit(); renderKit();
   selectPart("T-S");
 })();

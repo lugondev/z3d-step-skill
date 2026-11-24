@@ -1,5 +1,5 @@
 """Sweep test: every part over a range of parameters, nominal + print profile, must build a valid
-single solid per body and pass DRC (no FAIL). Demo assemblies must be interference-free.
+single solid per body and pass DRC (no FAIL). Templates/demo assemblies must be buildable (no overlap, screws clear, every screw grips 2 parts).
 
     ../.venv/bin/python test_frametile.py [--quick]
 """
@@ -49,9 +49,13 @@ for code, cases in SWEEP.items():
             print(f"ERR  {code:6} {params} {prof}: {type(e).__name__}: {e}")
             fails += 1
 for name, fn in A.SCENES.items():
-    items, screws = fn()
-    bad = A.check_scene(items, screws)
-    print(f"{'OK  ' if not bad else 'FAIL'} scene {name}", bad or "")
+    if QUICK and name in ("rocket", "building"):
+        continue
+    t = time.time()
+    sc = fn()
+    bad = A.check_scene(sc)
+    print(f"{'OK  ' if not bad else 'FAIL'} scene {name:9} {len(sc.items)} parts {len(sc.screws)} screws {time.time() - t:5.1f}s",
+          bad[:5] if bad else "")
     fails += bool(bad)
 print(f"\n{fails} failure(s) in {time.time() - t0:.0f}s")
 sys.exit(1 if fails else 0)

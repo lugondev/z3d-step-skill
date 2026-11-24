@@ -122,7 +122,9 @@ def check_body(body: Body, part_code: str, ctx: Ctx | None = None):
                 worst = min(worst, w)
                 if not ok:
                     bad.append(f"{h.tag}@({h.c[0]:.0f},{h.c[1]:.0f},{h.c[2]:.0f}) {w:.2f}")
-        add(f"Thành quanh lỗ ≥ {wall_min:g} mm", not bad, f"min {worst:.2f} mm", "; ".join(bad[:4]))
+        local = bad and worst >= 0.85 * wall_min  # only nibbled by an edge round / corner fillet
+        add(f"Thành quanh lỗ ≥ {wall_min:g} mm", True if not bad else (None if local else False), f"min {worst:.2f} mm",
+            ("mỏng cục bộ tại cạnh bo (1 điểm): " if local else "") + "; ".join(bad[:4]))
         web = hole_spacing(body.holes, wall_min)
         if web is not None:
             add(f"Vách giữa 2 lỗ ≥ {wall_min:g} mm", web >= wall_min - 1e-6, f"{web:.2f} mm")

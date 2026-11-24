@@ -13,9 +13,10 @@ the same style and mates on the same 8 mm grid:
     horizontal holes are teardrops, nut slots open upward, bed edges get an elephant-foot chamfer.
 
 Geometry conventions for 3D joints (see README):
-  * C-90: a wall tile STANDS ON a floor tile (wall outer face flush with the floor end face).
-    The connector sits in the inside corner; floor screw at 20 mm from the floor edge
-    (cell #2), wall screw at 12 mm above the floor top (cell #1). Captive M3 nuts.
+  * C-90: slim corner bracket (3×3 spine + alternating 3 mm tabs) in the inside corner of two tiles at 90°. Tiles meet "notched":
+    each tile's inner face starts where the other tile's edge is, so both perimeter hole lines
+    are 4 mm from the corner and the bar's screws (4 mm from each face) hit them on EVERY cell.
+    Plain M3 hex nuts on the tabs, M3×10 screws.
   * C-I / C-T / C-X: flat 4 mm splice plates for tiles butted edge-to-edge in one plane.
 """
 from __future__ import annotations
@@ -42,7 +43,8 @@ STANDARD = dict(
     inner_r=2.0,       # window / inside corner radius
     rim=8.0,           # tile rim width (hole sits in the middle)
     brace=5.0,         # brace width of X / diagonal tiles
-    conn=8.0,          # connector section (8 x 8)
+    conn=8.0,          # connector width (tab = one cell)
+    tab_t=3.0,         # C-90 tab thickness
     edge_round=0.6,    # cosmetic round on top edges
     ef_chamfer=0.4,    # elephant-foot chamfer on bed edges
     nut_af=5.5,        # M3 nut across flats (ISO 4032)
@@ -346,35 +348,56 @@ def _make_arch(ctx, n, m, holes, notes):
 
 # --------------------------------------------------------------------------- C-90 (3D corner)
 def make_c90(ctx: Ctx, holes=1, **_):
-    """L connector printed lying on its side. Print coords: arm along +X (floor screws, axis Y),
-    post along +Y (wall screws, axis X), width 8 in Z.  Mount faces: arm y=0 (floor tile),
-    post x=0 (wall tile)."""
+    """Corner bracket for the inside corner of two tiles meeting at 90° — slim alternating tabs.
+    Print coords: bracket along +X (length 16·holes), mate face A = y=0 (screws axis Y),
+    mate face B = z=0, the bed face (screws axis Z).
+      * a 3×3 spine runs along the corner;
+      * B tabs (flat, x = 16i…16i+8) lie on tile B, A tabs (upright, x = 16i+8…16i+16) on tile A;
+      * every tab ends in a half-disc R4 concentric with its hole, so the wall around a hole is
+        (8 − 3.2)/2 = 2.4 mm all round;
+      * screw axes are 4 mm from the mating face = the tile perimeter hole line, so the bracket
+        fits ANY cell along an edge. B screws at x = 4, 20, 36…, A screws at x = 12, 28, 44…
+    Tabs alternate so each nut sits in the free space beside the other tab (no captive pocket needed,
+    nothing to bridge): M3×10 = tile 4 + tab 3 + nut 2.4."""
     S, G = ctx.S, ctx.S["grid"]
-    c, notes = S["conn"], []
+    t, notes = S["tab_t"], []
     nh = int(holes)
     if nh < 1:
         raise ValueError("holes >= 1")
-    Lp = 8 * nh + 16
-    prof = [(0, 0), (Lp, 0), (Lp, c), (c, c), (c, Lp), (0, Lp)]
-    blank = _extrude_wire(_round_poly(prof, S["fillet_min"], S["inner_r"]), c)
-    zc = c / 2
-    arm_x = [8 * i + 8 for i in range(1, nh + 1)]   # 16, 24, ...
-    post_y = [8 * i + 4 for i in range(1, nh + 1)]  # 12, 20, ...
+    L = 2 * G * nh
+    r_in = min(S["fillet_min"], G / 2 - t - 0.01)   # concave tab root; 1 mm of straight flank before the R4 arc
+
+    def tongues(x_of):   # spine strip + one R4-ended tongue per pair, extruded t; concave corners R1
+        wp = cq.Workplane("XY").rect(L, t, centered=False).extrude(t)
+        corners = []
+        for i in range(nh):
+            x0 = x_of(i)
+            wp = wp.union(cq.Workplane("XY").center(x0 + G / 2, 0).rect(G, G / 2, centered=(True, False)).extrude(t))
+            wp = wp.union(cq.Workplane("XY").center(x0 + G / 2, G / 2).circle(G / 2).extrude(t))
+            corners += [(x0, t), (x0 + G, t)]
+        corners += [(0, t), (L, t)]
+        sel = [e for e in wp.edges("|Z").vals() if any(abs(e.Center().x - cx) < 1e-6 and abs(e.Center().y - cy) < 1e-6
+                                                       for cx, cy in corners)]
+        try:
+            return cq.Workplane("XY").add(wp.val().fillet(r_in, sel)) if sel else wp
+        except Exception:
+            notes.append("tab corner fillet skipped")
+            return wp
+
+    flat = tongues(lambda i: 2 * G * i)                                          # B tabs on the bed
+    up = tongues(lambda i: 2 * G * i + G)                                        # A tabs, drawn flat…
+    up = up.rotate((0, 0, 0), (1, 0, 0), 90).translate((0, t, 0))                # …stood up: XY -> XZ, thickness y 0…t
+    blank = flat.union(up)
     body = blank
     hl = []
-    af = ctx.m(S["nut_af"] + 0.1, "inner")
-    nt = ctx.m(S["nut_t"] + 0.3, "inner")
-    for x in arm_x:
-        body = body.cut(_teardrop(ctx.hole_h, c * 2 + 2, "y", (x, c / 2, zc)))
-        body = body.cut(_nut_slot(af, nt, "y", (x, c / 2 + 0.6, zc), c))
-        hl.append(Hole((x, 0, zc), "y", S["hole"], (0, c), "floor screw"))
-    for y in post_y:
-        body = body.cut(_teardrop(ctx.hole_h, c * 2 + 2, "x", (c / 2, y, zc)))
-        body = body.cut(_nut_slot(af, nt, "x", (c / 2 + 0.6, y, zc), c))
-        hl.append(Hole((0, y, zc), "x", S["hole"], (0, c), "wall screw"))
+    for i in range(nh):
+        xb, xa = 2 * G * i + G / 2, 2 * G * i + G * 1.5
+        body = body.cut(_cyl_z(xb, G / 2, ctx.hole_v, -1, t + 1))
+        hl.append(Hole((xb, G / 2, 0), "z", S["hole"], (0, t), "B screw"))
+        body = body.cut(_teardrop(ctx.hole_h, 2 * t + 2, "y", (xa, t / 2, G / 2)))
+        hl.append(Hole((xa, 0, G / 2), "y", S["hole"], (0, t), "A screw"))
     body = _finish(body, ctx, notes, top=False)
-    floor = round(zc - S["nut_af"] / math.sqrt(3), 2)
-    notes.append(f"captive-nut slots open on top; floor under nut tip {floor} mm (point only)")
+    notes.append("nuts sit on the tabs (standard M3 hex), tabs alternate so they never meet")
     return Body(f"C-90_h{nh}", _solid(body), _solid(blank), hl, ORANGE, "connector", notes)
 
 
@@ -562,10 +585,10 @@ PARAM_SPEC = {
     "D": dict(label="Ø ngoài (mm)", type="float", min=32, max=120),
     "width": dict(label="Bề rộng (mm)", type="float", min=6, max=40),
 }
-PARAM_SPEC_BY_PART = {"C-90": {"holes": dict(label="Số lỗ mỗi cánh", type="int", min=1, max=6)},
+PARAM_SPEC_BY_PART = {"C-90": {"holes": dict(label="Số cặp vít (dài 16·n mm)", type="int", min=1, max=6)},
                       "H-180": {"n": dict(label="Dài (ô)", type="int", min=2, max=12)}}
 
-SCREWS = {"tile+splice": "M3×12", "tile+C-90": "M3×16", "hinge pin": "M3×{L}", "hub axle": "M3×{L}"}
+SCREWS = {"tile+splice": "M3×12", "tile+C-90": "M3×10", "hinge pin": "M3×{L}", "hub axle": "M3×{L}"}
 
 
 def build_part(code: str, params: dict | None = None, ctx: Ctx | None = None) -> Part:
@@ -578,11 +601,11 @@ def build_part(code: str, params: dict | None = None, ctx: Ctx | None = None) ->
     bom = []
     if code in TILE_KINDS:
         bodies = [make_tile(code, ctx, **p)]
-        bom.append("Vít M3×12 + đai ốc (ghép splice C-I/C-T/C-X/C-L), M3×16 (ghép C-90)")
+        bom.append("Vít M3×10 (ke C-90) / M3×12 (splice C-I/C-T/C-X/C-L) + đai ốc M3")
     elif code == "C-90":
         bodies = [make_c90(ctx, **p)]
         nh = int(p["holes"])
-        bom.append(f"{2 * nh}× vít M3×16 + {2 * nh}× đai ốc M3 (nhét vào khe trên đỉnh)")
+        bom.append(f"{2 * nh}× vít M3×10 + {2 * nh}× đai ốc M3 (đặt trên tai ke)")
     elif code in SPLICE_ARMS:
         bodies = [make_splice(code, ctx, **p)]
         bom.append(f"{len(bodies[0].holes)}× vít M3×12 + đai ốc M3")
